@@ -176,6 +176,19 @@ export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
 
+    // For Windsurf, also remove the matching account from the in-process pool
+    // so it stops being selected for new chat requests.
+    try {
+      const conn = await getProviderConnectionById(id);
+      if (conn?.provider === "windsurf") {
+        const accountId = conn.providerSpecificData?.windsurfAccountId;
+        if (accountId) {
+          const { removeAccount } = await import("../../../../../open-sse/windsurf/index.js");
+          try { removeAccount(accountId); } catch {}
+        }
+      }
+    } catch {}
+
     const deleted = await deleteProviderConnection(id);
     if (!deleted) {
       return NextResponse.json({ error: "Connection not found" }, { status: 404 });

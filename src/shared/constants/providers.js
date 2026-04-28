@@ -65,6 +65,7 @@ export const APIKEY_PROVIDERS = {
   anthropic: { id: "anthropic", alias: "anthropic", name: "Anthropic", icon: "smart_toy", color: "#D97757", textIcon: "AN", website: "https://console.anthropic.com", serviceKinds: ["llm", "imageToText"] },
   "opencode-go": { id: "opencode-go", alias: "ocg", name: "OpenCode Go", icon: "terminal", color: "#E87040", textIcon: "OC", website: "https://opencode.ai/auth", notice: { text: "OpenCode Go subscription: $5/mo (then $10/mo). Access to Kimi, GLM, Qwen, MiMo, MiniMax models.", apiKeyUrl: "https://opencode.ai/auth" } },
   azure: { id: "azure", alias: "azure", name: "Azure OpenAI", icon: "cloud", color: "#0078D4", textIcon: "AZ", website: "https://azure.microsoft.com/en-us/products/ai-services/openai-service", hasProviderSpecificData: true },
+  windsurf: { id: "windsurf", alias: "ws", name: "Windsurf (Cascade)", icon: "surfing", color: "#0EA5E9", textIcon: "WS", website: "https://windsurf.com", notice: { text: "Self-hosted Windsurf Cascade pool. Requires the Windsurf Language Server binary on the host (Linux x86_64). Add Windsurf auth tokens from windsurf.com/show-auth-token.", apiKeyUrl: "https://windsurf.com/show-auth-token" }, customAuthFlow: "windsurf-token", serviceKinds: ["llm"] },
 
   deepseek: { id: "deepseek", alias: "ds", name: "DeepSeek", icon: "bolt", color: "#4D6BFE", textIcon: "DS", website: "https://deepseek.com" },
   groq: { id: "groq", alias: "groq", name: "Groq", icon: "speed", color: "#F55036", textIcon: "GQ", website: "https://groq.com", serviceKinds: ["llm", "imageToText"] },

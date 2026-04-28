@@ -63,6 +63,8 @@ const ALIAS_TO_PROVIDER_ID = {
   "grok-web": "grok-web",
   pw: "perplexity-web",
   "perplexity-web": "perplexity-web",
+  ws: "windsurf",
+  windsurf: "windsurf",
 };
 
 /**

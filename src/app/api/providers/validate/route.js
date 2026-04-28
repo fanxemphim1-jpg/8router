@@ -513,6 +513,26 @@ export async function POST(request) {
           break;
         }
 
+        case "windsurf": {
+          // Windsurf uses an offline pool — validate by exchanging the
+          // user-supplied auth token (ott$…) for a Codeium apiKey via the
+          // vendored client. addAccountByToken is idempotent and registers
+          // the account into the in-process pool as a side effect.
+          try {
+            const trimmed = String(apiKey).trim();
+            const mod = await import("../../../../../open-sse/windsurf/index.js");
+            const account = trimmed.startsWith("ott$")
+              ? await mod.addAccountByToken(trimmed)
+              : mod.addAccountByKey(trimmed);
+            isValid = !!account?.apiKey;
+            if (!isValid) error = "Windsurf token did not return an API key";
+          } catch (err) {
+            isValid = false;
+            error = `Windsurf token rejected: ${err?.message || err}`;
+          }
+          break;
+        }
+
         default:
           return NextResponse.json({ error: "Provider validation not supported" }, { status: 400 });
       }

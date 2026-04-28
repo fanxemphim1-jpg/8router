@@ -181,11 +181,44 @@ export async function POST(request) {
       mergedProviderSpecificData.proxyPoolId = proxyPoolId;
     }
 
+    // Windsurf: the user pastes the raw auth token (ott$…) from
+    // windsurf.com/show-auth-token. We exchange it for the upstream Codeium
+    // apiKey via the vendored pool, store the apiKey on the connection (so
+    // chat completions can fan out to the right pool entry), and keep the
+    // original token in providerSpecificData for future re-registration.
+    let resolvedApiKey = apiKey;
+    let resolvedConnectionName = name;
+    if (provider === "windsurf") {
+      try {
+        const trimmed = String(apiKey).trim();
+        // ott$ → exchange via Codeium; everything else (devin-session-token$…,
+        // raw Codeium API keys) goes straight into the pool by key.
+        const mod = await import("../../../../open-sse/windsurf/index.js");
+        const account = trimmed.startsWith("ott$")
+          ? await mod.addAccountByToken(trimmed)
+          : mod.addAccountByKey(trimmed);
+        resolvedApiKey = account.apiKey;
+        if (!resolvedConnectionName || resolvedConnectionName === apiKey) {
+          resolvedConnectionName = account.email || `windsurf-${account.id}`;
+        }
+        mergedProviderSpecificData.windsurfToken = String(apiKey).trim();
+        mergedProviderSpecificData.windsurfAccountId = account.id;
+        mergedProviderSpecificData.windsurfTier = account.tier;
+        mergedProviderSpecificData.windsurfApiServerUrl = account.apiServerUrl || "";
+        mergedProviderSpecificData.windsurfMethod = account.method || "token";
+      } catch (err) {
+        return NextResponse.json(
+          { error: `Windsurf token registration failed: ${err?.message || err}` },
+          { status: 400 },
+        );
+      }
+    }
+
     const newConnection = await createProviderConnection({
       provider,
       authType: isWebCookieProvider ? "cookie" : "apikey",
-      name,
-      apiKey,
+      name: resolvedConnectionName,
+      apiKey: resolvedApiKey,
       priority: priority || 1,
       globalPriority: globalPriority || null,
       defaultModel: defaultModel || null,
