@@ -78,12 +78,49 @@ function adaptResult(result) {
   }
 
   const encoder = new TextEncoder();
+  // Listener registry attached to fakeRes so both end() and the ReadableStream
+  // cancel() callback can fire registered 'close' handlers. Without this the
+  // upstream Cascade polling loop runs to its full ~180s timeout when the
+  // downstream consumer disconnects mid-stream.
+  const listeners = new Map();
+  const emit = (event, ...args) => {
+    const set = listeners.get(event);
+    if (!set) return;
+    for (const fn of Array.from(set)) {
+      try { fn(...args); } catch (err) { log.warn(`windsurf adapter: ${event} listener threw:`, err?.message); }
+    }
+  };
+  let fakeRes;
+  // Mirrors Node's response semantics:
+  //   - 'finish' fires on a clean res.end() (response fully sent).
+  //   - 'close'  fires on premature termination (consumer aborted the stream).
+  // Handlers attach res.on('close', abort) to cancel upstream polling when
+  // the downstream client disconnects mid-stream.
+  const closeWriter = (controller, premature) => {
+    if (fakeRes.writableEnded) return;
+    fakeRes.writableEnded = true;
+    fakeRes.writableFinished = !premature;
+    try { controller.close(); } catch {}
+    if (premature) emit('close');
+    else emit('finish');
+  };
   const stream = new ReadableStream({
     start(controller) {
-      let closed = false;
-      const fakeRes = {
+      const addListener = (event, fn) => {
+        if (typeof fn !== 'function') return fakeRes;
+        let set = listeners.get(event);
+        if (!set) { set = new Set(); listeners.set(event, set); }
+        set.add(fn);
+        return fakeRes;
+      };
+      const removeListener = (event, fn) => {
+        const set = listeners.get(event);
+        if (set) set.delete(fn);
+        return fakeRes;
+      };
+      fakeRes = {
         write(chunk) {
-          if (closed) return false;
+          if (fakeRes.writableEnded) return false;
           try {
             const buf = typeof chunk === 'string' ? encoder.encode(chunk)
               : (chunk instanceof Uint8Array ? chunk : encoder.encode(String(chunk)));
@@ -94,36 +131,51 @@ function adaptResult(result) {
           return true;
         },
         end(chunk) {
-          if (closed) return;
+          if (fakeRes.writableEnded) return;
           if (chunk !== undefined) fakeRes.write(chunk);
-          closed = true;
-          try { controller.close(); } catch {}
+          closeWriter(controller, false);
         },
         // The handler may call setHeader/flushHeaders/setTimeout/socket.* —
         // ignore them safely. Headers are already on the outer Response.
         setHeader() {}, getHeader() {}, removeHeader() {},
         flushHeaders() {}, setTimeout() {},
         socket: { setNoDelay() {}, setKeepAlive() {} },
-        on() {}, once() {}, off() {}, removeListener() {},
-        // Some code paths check writable*; expose conservative defaults.
+        on(event, fn) { return addListener(event, fn); },
+        once(event, fn) {
+          if (typeof fn !== 'function') return fakeRes;
+          const wrapper = (...args) => { removeListener(event, wrapper); fn(...args); };
+          return addListener(event, wrapper);
+        },
+        off(event, fn) { return removeListener(event, fn); },
+        removeListener(event, fn) { return removeListener(event, fn); },
         writable: true,
         writableEnded: false,
         writableFinished: false,
+        // Stored so the outer cancel() callback can fire 'close' listeners.
+        __controller: controller,
       };
       Promise.resolve()
         .then(() => result.handler(fakeRes))
         .catch(err => {
           log.error('windsurf adapter: handler threw:', err?.message);
-          if (!closed) {
+          if (!fakeRes.writableEnded) {
             try { controller.error(err); } catch {}
           }
         })
         .finally(() => {
-          if (!closed) {
-            closed = true;
-            try { controller.close(); } catch {}
-          }
+          // Defensive: if the handler returned without calling res.end()
+          // (e.g. it threw), close the writer cleanly. This is NOT a
+          // premature close — fire 'finish', not 'close'.
+          closeWriter(controller, false);
         });
+    },
+    cancel() {
+      // Downstream consumer aborted (e.g. 9router HTTP client closed the
+      // connection). Fire 'close' so the Windsurf handler's abortController
+      // tears down its polling loop and frees the account RPM slot.
+      if (fakeRes && !fakeRes.writableEnded) {
+        closeWriter(fakeRes.__controller, true);
+      }
     },
   });
 

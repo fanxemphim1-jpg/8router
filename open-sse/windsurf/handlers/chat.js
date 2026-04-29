@@ -318,7 +318,7 @@ export async function handleChatCompletions(body, deps = {}) {
         const rl = await checkMessageRateLimit(acct.apiKey, px);
         if (!rl.hasCapacity) {
           log.warn(`Preflight: ${acct.email} has no capacity (remaining=${rl.messagesRemaining}), skipping`);
-          markRateLimited(acct.id, modelKey);
+          markRateLimited(acct.apiKey, 5 * 60 * 1000, modelKey);
           continue;
         }
       } catch (e) {
@@ -711,7 +711,7 @@ function streamResponse(id, created, model, modelKey, messages, cascadeMessages,
               const rl = await checkMessageRateLimit(acct.apiKey, px);
               if (!rl.hasCapacity) {
                 log.warn(`Preflight: ${acct.email} has no capacity (remaining=${rl.messagesRemaining}), skipping`);
-                markRateLimited(acct.id, modelKey);
+                markRateLimited(acct.apiKey, 5 * 60 * 1000, modelKey);
                 continue;
               }
             } catch (e) {
