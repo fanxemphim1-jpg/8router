@@ -589,6 +589,10 @@ export class DevinWebExecutor extends BaseExecutor {
     let orgId;
     let content;
     try {
+      // Resolve org_id BEFORE creating session so /api/sessions request carries
+      // org headers (x-cog-org-id etc). Without this, Devin returns 401
+      // "No organizations found for auth1 user".
+      orgId = await resolveOrgId(auth, randomDevinId(), fetchImpl);
       devinId = await createDevinSession(
         auth,
         prompt,
@@ -596,7 +600,6 @@ export class DevinWebExecutor extends BaseExecutor {
         { username, plannerType, planningMode },
         fetchImpl,
       );
-      orgId = await resolveOrgId(auth, devinId, fetchImpl);
       log?.debug?.("DEVIN-WEB", `Created session ${devinId} | org=${orgId}`);
       content = await waitForDevinReply(auth, orgId, devinId, startedAt, signal, timeoutMs, fetchImpl);
       log?.info?.("DEVIN-WEB", `Session ${devinId} replied (${content.length} chars)`);
