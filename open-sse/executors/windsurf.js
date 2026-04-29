@@ -14,6 +14,7 @@ import { PROVIDERS } from "../config/providers.js";
 import {
   runWindsurfChat,
   addAccountByToken,
+  addAccountByKey,
   getAccountList,
   ensureInitialized,
 } from "../windsurf/index.js";
@@ -41,20 +42,27 @@ export class WindsurfExecutor extends BaseExecutor {
   async execute({ model, body, stream, credentials, signal, log }) {
     await ensureInitialized();
 
-    // Lazy-register: if the 9router connection carries a Windsurf auth token
-    // in providerSpecificData.token (the raw ott$… value the user pasted) and
-    // the vendored pool doesn't yet have an account derived from it, register
-    // it now. The vendored addAccountByToken is idempotent.
+    // Lazy-register: if the 9router connection carries a Windsurf credential
+    // and the vendored pool doesn't yet have an account derived from it,
+    // register it now. Mirror the dispatch logic in POST /api/providers:
+    //   - method=='token' or value starts with 'ott$' → exchange via Codeium
+    //   - method=='api_key' or anything else          → register as raw key
+    // The vendored addAccountBy* helpers are idempotent.
     const rawToken = credentials?.providerSpecificData?.windsurfToken
       || credentials?.providerSpecificData?.token
       || null;
+    const method = credentials?.providerSpecificData?.windsurfMethod;
     const knownApiKey = credentials?.apiKey || null;
     const pool = getAccountList();
 
     if (rawToken && !pool.some(a => a.apiKey === knownApiKey)) {
       try {
-        const account = await addAccountByToken(rawToken);
-        log?.info?.("WINDSURF", `registered account ${account.id} (${account.email}) from connection ${credentials?.id?.slice(0, 8) || "?"}`);
+        const isToken = method === "token"
+          || (!method && rawToken.startsWith("ott$"));
+        const account = isToken
+          ? await addAccountByToken(rawToken)
+          : addAccountByKey(rawToken);
+        log?.info?.("WINDSURF", `registered account ${account.id} (${account.email}) via ${isToken ? "token" : "api_key"} from connection ${credentials?.id?.slice(0, 8) || "?"}`);
       } catch (err) {
         log?.warn?.("WINDSURF", `lazy register failed: ${err?.message}`);
       }
