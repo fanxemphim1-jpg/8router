@@ -72,6 +72,74 @@ function genId() {
   return 'chatcmpl-' + randomUUID().replace(/-/g, '').slice(0, 29);
 }
 
+// Per-turn tool-list trimming. Returns a (possibly shortened) copy of the
+// tools array, preserving order semantics for the rest of the pipeline.
+//
+// Activated only when WINDSURF_MAX_TOOLS > 0 and the supplied catalog
+// exceeds the cap. Selection priority (kept first):
+//   1) tool named by an explicit tool_choice (must always remain available)
+//   2) tools whose names appeared in any prior assistant.tool_calls or
+//      role:'tool' message — dropping these would break in-flight flows
+//   3) remaining slots filled with the smallest-schema tools first
+//      (smaller param schemas reduce token pressure on the model and are
+//      less likely to cause invalid-JSON output)
+function trimToolsForRequest(tools, messages, toolChoice) {
+  if (!Array.isArray(tools) || tools.length === 0) return tools;
+  const cap = parseInt(process.env.WINDSURF_MAX_TOOLS || '0', 10);
+  if (!cap || cap <= 0 || tools.length <= cap) return tools;
+
+  const forcedName = (toolChoice && typeof toolChoice === 'object' && toolChoice.type === 'function')
+    ? toolChoice.function?.name
+    : null;
+
+  const usedNames = new Set();
+  if (Array.isArray(messages)) {
+    for (const m of messages) {
+      if (m?.role === 'assistant' && Array.isArray(m.tool_calls)) {
+        for (const tc of m.tool_calls) {
+          const n = tc?.function?.name;
+          if (n) usedNames.add(n);
+        }
+      } else if (m?.role === 'tool' && m?.name) {
+        usedNames.add(m.name);
+      }
+    }
+  }
+
+  const annotated = tools.map((t, idx) => {
+    const name = t?.function?.name || '';
+    let schemaSize = 0;
+    try { schemaSize = JSON.stringify(t?.function?.parameters || {}).length; } catch { schemaSize = 0; }
+    return {
+      t, idx, name,
+      forced: !!forcedName && name === forcedName,
+      used: usedNames.has(name),
+      size: schemaSize,
+    };
+  });
+
+  annotated.sort((a, b) => {
+    if (a.forced !== b.forced) return a.forced ? -1 : 1;
+    if (a.used !== b.used) return a.used ? -1 : 1;
+    if (a.size !== b.size) return a.size - b.size;
+    return a.idx - b.idx;
+  });
+
+  const kept = annotated.slice(0, cap);
+  // Restore original order so dependents that index by position behave the
+  // same way as before — only the contents of the array shrink.
+  kept.sort((a, b) => a.idx - b.idx);
+  const trimmed = kept.map(x => x.t);
+
+  if (trimmed.length < tools.length) {
+    log.info(
+      `Tool trim: kept ${trimmed.length}/${tools.length} (cap=${cap}, ` +
+      `forced=${forcedName || 'none'}, recent=${usedNames.size})`
+    );
+  }
+  return trimmed;
+}
+
 // Rough token estimate (~4 chars/token). Used only to populate the
 // OpenAI-compatible `usage.prompt_tokens_details.cached_tokens` field so
 // upstream billing/dashboards (new-api) can recognise our local cache hits.
@@ -193,11 +261,28 @@ export async function handleChatCompletions(body, deps = {}) {
   const hasTools = Array.isArray(tools) && tools.length > 0;
   const hasToolHistory = Array.isArray(messages) && messages.some(m => m?.role === 'tool' || (m?.role === 'assistant' && Array.isArray(m.tool_calls) && m.tool_calls.length));
   const emulateTools = useCascade && (hasTools || hasToolHistory);
+
+  // Per-turn tool-list trimming. Cascade rejects tool_calls with
+  // "The model produced an invalid tool call" when the tool catalog is
+  // large (e.g. 30 tools × full JSON schema = ~11K extra tokens) AND the
+  // conversation context is large; the model emits truncated/garbled JSON
+  // and the upstream rejects it.
+  //
+  // Mitigation: cap how many tools we expose per request. We keep:
+  //   1) the tool requested via tool_choice (if specific function)
+  //   2) tools whose names appeared in recent assistant.tool_calls
+  //      history (the model is mid-flow with these — must stay)
+  //   3) remaining slots filled by smallest-schema tools first
+  //
+  // Configurable via env (defaults are conservative and only activate
+  // when the catalog is genuinely large):
+  //   WINDSURF_MAX_TOOLS  — hard cap on number of tools exposed (0 = off)
+  const trimmedTools = trimToolsForRequest(tools, messages, tool_choice);
   // Build proto-level preamble (goes into tool_calling_section override);
   // pass empty tools to normalizeMessagesForCascade so it only rewrites
   // role:tool / assistant.tool_calls messages without injecting a user-level
   // preamble (that's now handled at the proto layer).
-  const toolPreamble = emulateTools ? buildToolPreambleForProto(tools || [], tool_choice) : '';
+  const toolPreamble = emulateTools ? buildToolPreambleForProto(trimmedTools || [], tool_choice) : '';
   let cascadeMessages = emulateTools
     ? normalizeMessagesForCascade(messages, [])
     : [...messages];
