@@ -539,13 +539,31 @@ export async function POST(request) {
           } else {
             headers.Authorization = `Bearer ${trimmed.replace(/^Bearer\s+/i, "")}`;
           }
-          const res = await fetch("https://app.devin.ai/api/users/me", { method: "GET", headers });
-          if (res.status === 401 || res.status === 403) {
+          // Two-step probe so we surface meaningful errors:
+          //   1. POST /api/users/post-auth   — verifies the bearer itself.
+          //   2. GET  /api/orgs              — verifies the auth1 user has
+          //      an active org membership (required for session creation).
+          headers["Content-Type"] = "application/json";
+          const probeAuth = await fetch("https://app.devin.ai/api/users/post-auth", {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ devin_id: `devin-validate-${crypto.randomUUID().replace(/-/g, "")}` }),
+          });
+          if (probeAuth.status === 401 || probeAuth.status === 403) {
             isValid = false;
-            error = "Invalid Devin credential — re-extract auth1_session cookie from app.devin.ai (must be logged in).";
-          } else {
-            isValid = true;
+            error = "Invalid Devin credential — re-extract auth1_session cookie / bearer from app.devin.ai (must be logged in).";
+            break;
           }
+          const orgsHeaders = { ...headers };
+          delete orgsHeaders["Content-Type"];
+          const probeOrgs = await fetch("https://app.devin.ai/api/orgs", { method: "GET", headers: orgsHeaders });
+          if (probeOrgs.status === 401 || probeOrgs.status === 403) {
+            const detail = await probeOrgs.text().catch(() => "");
+            isValid = false;
+            error = `Devin account has no usable org membership (auth recognized but ${probeOrgs.status} from /api/orgs). ${detail.slice(0, 160)}`.trim();
+            break;
+          }
+          isValid = true;
           break;
         }
 

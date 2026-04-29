@@ -590,9 +590,23 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
         } else {
           headers.Authorization = `Bearer ${trimmed.replace(/^Bearer\s+/i, "")}`;
         }
-        const res = await fetchWithConnectionProxy("https://app.devin.ai/api/users/me", { method: "GET", headers }, effectiveProxy);
-        const valid = res.status !== 401 && res.status !== 403;
-        return { valid, error: valid ? null : "Invalid Devin credential — re-extract auth1_session cookie from app.devin.ai" };
+        headers["Content-Type"] = "application/json";
+        const probeAuth = await fetchWithConnectionProxy("https://app.devin.ai/api/users/post-auth", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ devin_id: `devin-test-${crypto.randomUUID().replace(/-/g, "")}` }),
+        }, effectiveProxy);
+        if (probeAuth.status === 401 || probeAuth.status === 403) {
+          return { valid: false, error: "Invalid Devin credential — re-extract auth1_session cookie / bearer from app.devin.ai" };
+        }
+        const orgsHeaders = { ...headers };
+        delete orgsHeaders["Content-Type"];
+        const probeOrgs = await fetchWithConnectionProxy("https://app.devin.ai/api/orgs", { method: "GET", headers: orgsHeaders }, effectiveProxy);
+        if (probeOrgs.status === 401 || probeOrgs.status === 403) {
+          const detail = await probeOrgs.text().catch(() => "");
+          return { valid: false, error: `Devin account has no usable org membership (auth recognized but ${probeOrgs.status} from /api/orgs). ${detail.slice(0, 160)}`.trim() };
+        }
+        return { valid: true, error: null };
       }
       case "perplexity-web": {
         let sessionToken = connection.apiKey;
