@@ -513,6 +513,42 @@ export async function POST(request) {
           break;
         }
 
+        case "devin-web": {
+          // Validate the Devin cookie/bearer by hitting Devin's me endpoint.
+          // Any non-401/403 response means the auth was accepted by Devin.
+          const trimmed = String(apiKey || "").trim();
+          if (!trimmed) {
+            isValid = false;
+            error = "Missing Devin credential";
+            break;
+          }
+          // Detect bare bearer vs full cookie header.
+          const looksLikeCookieHeader = trimmed.includes("=") && /\b[a-zA-Z0-9_.-]+=/.test(trimmed);
+          const headers = {
+            Accept: "application/json",
+            Origin: "https://app.devin.ai",
+            Referer: "https://app.devin.ai/",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          };
+          if (looksLikeCookieHeader) {
+            headers.Cookie = trimmed;
+            // Best-effort: try to extract a bearer for Authorization too.
+            const bearerMatch = trimmed.match(/auth1_[A-Za-z0-9]{16,}/) ||
+              trimmed.match(/[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/);
+            if (bearerMatch) headers.Authorization = `Bearer ${bearerMatch[0]}`;
+          } else {
+            headers.Authorization = `Bearer ${trimmed.replace(/^Bearer\s+/i, "")}`;
+          }
+          const res = await fetch("https://app.devin.ai/api/users/me", { method: "GET", headers });
+          if (res.status === 401 || res.status === 403) {
+            isValid = false;
+            error = "Invalid Devin credential — re-extract auth1_session cookie from app.devin.ai (must be logged in).";
+          } else {
+            isValid = true;
+          }
+          break;
+        }
+
         case "windsurf": {
           // Windsurf uses an offline pool — validate by exchanging the
           // user-supplied auth token (ott$…) for a Codeium apiKey via the

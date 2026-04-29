@@ -573,6 +573,27 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
         const valid = res.status !== 401 && res.status !== 403;
         return { valid, error: valid ? null : "Invalid SSO cookie" };
       }
+      case "devin-web": {
+        const trimmed = String(connection.apiKey || "").trim();
+        const looksLikeCookieHeader = trimmed.includes("=") && /\b[a-zA-Z0-9_.-]+=/.test(trimmed);
+        const headers = {
+          Accept: "application/json",
+          Origin: "https://app.devin.ai",
+          Referer: "https://app.devin.ai/",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        };
+        if (looksLikeCookieHeader) {
+          headers.Cookie = trimmed;
+          const bearerMatch = trimmed.match(/auth1_[A-Za-z0-9]{16,}/) ||
+            trimmed.match(/[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/);
+          if (bearerMatch) headers.Authorization = `Bearer ${bearerMatch[0]}`;
+        } else {
+          headers.Authorization = `Bearer ${trimmed.replace(/^Bearer\s+/i, "")}`;
+        }
+        const res = await fetchWithConnectionProxy("https://app.devin.ai/api/users/me", { method: "GET", headers }, effectiveProxy);
+        const valid = res.status !== 401 && res.status !== 403;
+        return { valid, error: valid ? null : "Invalid Devin credential — re-extract auth1_session cookie from app.devin.ai" };
+      }
       case "perplexity-web": {
         let sessionToken = connection.apiKey;
         if (sessionToken.startsWith("__Secure-next-auth.session-token=")) sessionToken = sessionToken.slice("__Secure-next-auth.session-token=".length);

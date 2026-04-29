@@ -362,6 +362,15 @@ export const PROVIDERS = {
     format: "perplexity-web",
     authType: "cookie"
   },
+  // Devin Web — proxies Claude Opus 4.7 / Devin 2.5 via the user's own
+  // app.devin.ai session (ported from devin-claude-gateway). Auth is
+  // the Devin browser cookie / auth1 bearer; the executor handles
+  // session creation + polling itself, so baseUrl is unused for routing.
+  "devin-web": {
+    baseUrl: "https://app.devin.ai/api/sessions",
+    format: "openai",
+    authType: "cookie"
+  },
   azure: {
     baseUrl: "",
     format: "openai",
