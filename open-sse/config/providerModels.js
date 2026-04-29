@@ -520,6 +520,12 @@ export const PROVIDER_MODELS = {
     { id: "grok-4.1-thinking", name: "Grok 4.1 Thinking" },
     { id: "grok-4.2", name: "Grok 4.2 (4.20 Beta)" },
   ],
+  "devin-web": [
+    { id: "claude-opus-4-7", name: "Claude Opus 4.7 (via Devin)" },
+    { id: "devin-opus-4-7", name: "Devin Opus 4.7" },
+    { id: "devin-2-5", name: "Devin 2.5" },
+    { id: "devin-0929-brocade", name: "Devin Brocade" },
+  ],
   "perplexity-web": [
     { id: "pplx-auto", name: "Perplexity Auto (Free)" },
     { id: "pplx-sonar", name: "Perplexity Sonar" },

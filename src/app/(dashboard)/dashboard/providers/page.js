@@ -379,7 +379,7 @@ export default function ProvidersPage() {
       </div>
 
       {/* Web Cookie Providers — use browser subscription cookie instead of API key */}
-      {/* <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold flex items-center gap-2">
             Web Cookie Providers{" "}
@@ -397,7 +397,7 @@ export default function ProvidersPage() {
             />
           ))}
         </div>
-      </div> */}
+      </div>
 
       {/* API Key Compatible Providers — dynamic (OpenAI/Anthropic compatible) */}
       <div className="flex flex-col gap-4">

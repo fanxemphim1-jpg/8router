@@ -513,6 +513,60 @@ export async function POST(request) {
           break;
         }
 
+        case "devin-web": {
+          // Validate the Devin cookie/bearer by hitting Devin's me endpoint.
+          // Any non-401/403 response means the auth was accepted by Devin.
+          const trimmed = String(apiKey || "").trim();
+          if (!trimmed) {
+            isValid = false;
+            error = "Missing Devin credential";
+            break;
+          }
+          // Detect bare bearer vs full cookie header.
+          const looksLikeCookieHeader = trimmed.includes("=") && /\b[a-zA-Z0-9_.-]+=/.test(trimmed);
+          const headers = {
+            Accept: "application/json",
+            Origin: "https://app.devin.ai",
+            Referer: "https://app.devin.ai/",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          };
+          if (looksLikeCookieHeader) {
+            headers.Cookie = trimmed;
+            // Best-effort: try to extract a bearer for Authorization too.
+            const bearerMatch = trimmed.match(/auth1_[A-Za-z0-9]{16,}/) ||
+              trimmed.match(/[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/);
+            if (bearerMatch) headers.Authorization = `Bearer ${bearerMatch[0]}`;
+          } else {
+            headers.Authorization = `Bearer ${trimmed.replace(/^Bearer\s+/i, "")}`;
+          }
+          // Two-step probe so we surface meaningful errors:
+          //   1. POST /api/users/post-auth   — verifies the bearer itself.
+          //   2. GET  /api/orgs              — verifies the auth1 user has
+          //      an active org membership (required for session creation).
+          headers["Content-Type"] = "application/json";
+          const probeAuth = await fetch("https://app.devin.ai/api/users/post-auth", {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ devin_id: `devin-validate-${crypto.randomUUID().replace(/-/g, "")}` }),
+          });
+          if (probeAuth.status === 401 || probeAuth.status === 403) {
+            isValid = false;
+            error = "Invalid Devin credential — re-extract auth1_session cookie / bearer from app.devin.ai (must be logged in).";
+            break;
+          }
+          const orgsHeaders = { ...headers };
+          delete orgsHeaders["Content-Type"];
+          const probeOrgs = await fetch("https://app.devin.ai/api/orgs", { method: "GET", headers: orgsHeaders });
+          if (probeOrgs.status === 401 || probeOrgs.status === 403) {
+            const detail = await probeOrgs.text().catch(() => "");
+            isValid = false;
+            error = `Devin account has no usable org membership (auth recognized but ${probeOrgs.status} from /api/orgs). ${detail.slice(0, 160)}`.trim();
+            break;
+          }
+          isValid = true;
+          break;
+        }
+
         case "windsurf": {
           // Windsurf uses an offline pool — validate by exchanging the
           // user-supplied auth token (ott$…) for a Codeium apiKey via the
