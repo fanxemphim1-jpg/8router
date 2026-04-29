@@ -98,11 +98,17 @@ function adaptResult(result) {
   // the downstream client disconnects mid-stream.
   const closeWriter = (controller, premature) => {
     if (fakeRes.writableEnded) return;
+    // For premature close, fire 'close' BEFORE flipping writableEnded so
+    // listeners that gate on `!res.writableEnded` (e.g. the chat handler at
+    // handlers/chat.js:543, which only calls abortController.abort() when
+    // the writer is still considered open) actually run their abort path.
+    // For clean end, fire 'finish' AFTER so `writableFinished === true` is
+    // observable to listeners.
+    if (premature) emit('close');
     fakeRes.writableEnded = true;
     fakeRes.writableFinished = !premature;
     try { controller.close(); } catch {}
-    if (premature) emit('close');
-    else emit('finish');
+    if (!premature) emit('finish');
   };
   const stream = new ReadableStream({
     start(controller) {
