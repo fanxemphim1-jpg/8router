@@ -362,6 +362,56 @@ export const PROVIDER_MODELS = {
     { id: "deepseek-chat", name: "DeepSeek V3.2 Chat" },
     { id: "deepseek-reasoner", name: "DeepSeek V3.2 Reasoner" },
   ],
+  ws: [  // Windsurf (Cascade) — vendored gRPC backend, no outbound HTTP
+    // Anthropic / Claude family
+    { id: "claude-sonnet-4.6", name: "Claude Sonnet 4.6" },
+    { id: "claude-sonnet-4.6-thinking", name: "Claude Sonnet 4.6 (Thinking)" },
+    { id: "claude-sonnet-4.6-1m", name: "Claude Sonnet 4.6 (1M)" },
+    { id: "claude-sonnet-4.6-thinking-1m", name: "Claude Sonnet 4.6 Thinking (1M)" },
+    { id: "claude-opus-4.6", name: "Claude Opus 4.6" },
+    { id: "claude-opus-4.6-thinking", name: "Claude Opus 4.6 (Thinking)" },
+    { id: "claude-opus-4.7-low", name: "Claude Opus 4.7 (Low)" },
+    { id: "claude-opus-4.7-medium", name: "Claude Opus 4.7 (Medium)" },
+    { id: "claude-opus-4.7-high", name: "Claude Opus 4.7 (High)" },
+    { id: "claude-opus-4.7-xhigh", name: "Claude Opus 4.7 (xHigh)" },
+    { id: "claude-opus-4.7-max", name: "Claude Opus 4.7 (Max)" },
+    { id: "claude-4.5-haiku", name: "Claude 4.5 Haiku" },
+    { id: "claude-4.5-sonnet", name: "Claude 4.5 Sonnet" },
+    { id: "claude-4.5-sonnet-thinking", name: "Claude 4.5 Sonnet (Thinking)" },
+    { id: "claude-4.5-opus", name: "Claude 4.5 Opus" },
+    { id: "claude-4.5-opus-thinking", name: "Claude 4.5 Opus (Thinking)" },
+    { id: "claude-4.1-opus", name: "Claude 4.1 Opus" },
+    { id: "claude-4.1-opus-thinking", name: "Claude 4.1 Opus (Thinking)" },
+    { id: "claude-4-opus", name: "Claude 4 Opus" },
+    { id: "claude-4-opus-thinking", name: "Claude 4 Opus (Thinking)" },
+    { id: "claude-4-sonnet", name: "Claude 4 Sonnet" },
+    { id: "claude-4-sonnet-thinking", name: "Claude 4 Sonnet (Thinking)" },
+    { id: "claude-3.7-sonnet", name: "Claude 3.7 Sonnet" },
+    { id: "claude-3.7-sonnet-thinking", name: "Claude 3.7 Sonnet (Thinking)" },
+    { id: "claude-3.5-sonnet", name: "Claude 3.5 Sonnet" },
+    // OpenAI family
+    { id: "gpt-5.1-codex", name: "GPT-5.1 Codex" },
+    { id: "gpt-5.1", name: "GPT-5.1" },
+    { id: "gpt-5", name: "GPT-5" },
+    { id: "gpt-5-mini", name: "GPT-5 Mini" },
+    { id: "gpt-4.1", name: "GPT-4.1" },
+    { id: "gpt-4o", name: "GPT-4o" },
+    { id: "gpt-4o-mini", name: "GPT-4o Mini" },
+    { id: "o3-mini", name: "o3 Mini" },
+    { id: "o3", name: "o3" },
+    // Google / Gemini family
+    { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
+    { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
+    { id: "gemini-2.5-pro-thinking", name: "Gemini 2.5 Pro (Thinking)" },
+    // xAI
+    { id: "grok-4", name: "Grok 4" },
+    { id: "grok-4-fast-reasoning", name: "Grok 4 Fast (Reasoning)" },
+    // DeepSeek
+    { id: "deepseek-v3", name: "DeepSeek V3" },
+    { id: "deepseek-r1", name: "DeepSeek R1" },
+    // Meta (free tier hosting via Cascade)
+    { id: "llama-4-maverick", name: "Llama 4 Maverick" },
+  ],
   groq: [
     { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B" },
     { id: "meta-llama/llama-4-maverick-17b-128e-instruct", name: "Llama 4 Maverick" },
@@ -550,6 +600,7 @@ const OAUTH_ALIASES = {
   opencode: "oc",
   vertex: "vertex",
   "vertex-partner": "vertex-partner",
+  windsurf: "ws",
 };
 
 // Derived from PROVIDERS — no need to maintain manually

@@ -13,6 +13,7 @@ import { OpenCodeExecutor } from "./opencode.js";
 import { OpenCodeGoExecutor } from "./opencode-go.js";
 import { GrokWebExecutor } from "./grok-web.js";
 import { PerplexityWebExecutor } from "./perplexity-web.js";
+import { WindsurfExecutor } from "./windsurf.js";
 import { DefaultExecutor } from "./default.js";
 
 const executors = {
@@ -33,6 +34,8 @@ const executors = {
   "opencode-go": new OpenCodeGoExecutor(),
   "grok-web": new GrokWebExecutor(),
   "perplexity-web": new PerplexityWebExecutor(),
+  windsurf: new WindsurfExecutor(),
+  ws: new WindsurfExecutor(),
 };
 
 const defaultCache = new Map();

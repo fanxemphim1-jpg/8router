@@ -367,6 +367,16 @@ export const PROVIDERS = {
     format: "openai",
     headers: {}
   },
+  // Windsurf — handled in-process by the vendored gRPC client at
+  // open-sse/windsurf/. baseUrl is unused (executor calls runWindsurfChat
+  // directly without HTTP), but format must be set so chatCore translates
+  // incoming requests to the OpenAI shape Windsurf expects.
+  windsurf: {
+    baseUrl: "internal://windsurf",
+    format: "openai",
+    headers: {},
+    noAuth: true,
+  },
   // Cloudflare Workers AI - {accountId} resolved from credentials.providerSpecificData.accountId
   "cloudflare-ai": {
     baseUrl: "https://api.cloudflare.com/client/v4/accounts/{accountId}/ai/v1/chat/completions",
